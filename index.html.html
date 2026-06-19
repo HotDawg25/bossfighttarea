@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Monstruo de la Tarea: FASE 2 AL DOCO</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #050505;
+            color: #fff;
+            font-family: monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            transition: filter 0.1s ease;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #game-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 800px;
+            transition: width 0.5s ease;
+            position: relative;
+        }
+
+        #ui-container {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+            visibility: hidden;
+        }
+
+        .bar-container {
+            width: 250px;
+            height: 22px;
+            background-color: #111;
+            border: 2px solid #444;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        #boss-health-bar {
+            width: 100%;
+            height: 100%;
+            background-color: #e74c3c;
+            transition: width 0.1s ease, background-color 0.5s;
+        }
+
+        #player-health-bar {
+            width: 100%;
+            height: 100%;
+            background-color: #2ecc71;
+            transition: width 0.1s ease;
+        }
+
+        #pause-btn {
+            background: #222;
+            color: #fff;
+            border: 2px solid #fff;
+            padding: 5px 15px;
+            cursor: pointer;
+            font-family: monospace;
+            font-size: 1rem;
+            border-radius: 4px;
+        }
+        #pause-btn:hover { background: #fff; color: #000; }
+
+        canvas {
+            background-color: #111;
+            border: 4px solid #ff4444;
+            box-shadow: 0 0 30px rgba(255, 68, 68, 0.2);
+            width: 100%;
+            transition: border-color 0.5s, box-shadow 0.5s;
+        }
+
+        .overlay-screen {
+            position: absolute;
+            font-size: 2.2rem;
+            background: rgba(5,5,5,0.95);
+            padding: 40px;
+            border-radius: 12px;
+            text-align: center;
+            border: 3px solid #333;
+            z-index: 100;
+            max-width: 80%;
+        }
+
+        #game-over-screen { display: none; border-color: #2ecc71; }
+        #start-screen { display: block; border-color: #f1c40f; }
+
+        .start-options {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        button {
+            font-size: 1.2rem; margin-top: 25px; padding: 10px 25px; cursor: pointer; 
+            font-family: monospace; background: #222; color: #fff; border: 2px solid #fff;
+            border-radius: 4px;
+        }
+        button:hover { background: #fff; color: #000; }
+
+        /* Controles de Celular */
+        #mobile-controls {
+            display: none;
+            position: absolute;
+            bottom: 10px;
+            width: 100%;
+            justify-content: space-between;
+            padding: 0 20px;
+            box-sizing: border-box;
+            z-index: 50;
+            pointer-events: none;
+        }
+
+        .dpad {
+            display: grid;
+            grid-template-columns: repeat(3, 50px);
+            grid-template-rows: repeat(3, 50px);
+            gap: 5px;
+            pointer-events: auto;
+        }
+
+        .mobile-btn {
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            color: white;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .mobile-btn:active { background: rgba(255, 255, 255, 0.4); }
+
+        #btn-up { grid-column: 2; grid-row: 1; border-radius: 8px; }
+        #btn-left { grid-column: 1; grid-row: 2; border-radius: 8px; }
+        #btn-right { grid-column: 3; grid-row: 2; border-radius: 8px; }
+        #btn-down { grid-column: 2; grid-row: 3; border-radius: 8px; }
+
+        #action-pad {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+        }
+
+        #btn-shoot {
+            width: 80px;
+            height: 80px;
+            background: rgba(255, 68, 68, 0.3);
+            border: 3px solid rgba(255, 68, 68, 0.6);
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-wrapper">
+        <div id="ui-container">
+            <div>
+                <div>MI VIDA</div>
+                <div class="bar-container"><div id="player-health-bar"></div></div>
+            </div>
+            <button id="pause-btn" onclick="togglePause()">PAUSA</button>
+            <div style="text-align: right;">
+                <div id="boss-name-label">EL MONSTRUO DE LA TAREA</div>
+                <div class="bar-container"><div id="boss-health-bar"></div></div>
+            </div>
+        </div>
+
+        <canvas id="gameCanvas" width="1000" height="600"></canvas>
+
+        <!-- Controles virtuales -->
+        <div id="mobile-controls">
+            <div class="dpad">
+                <div id="btn-up" class="mobile-btn">↑</div>
+                <div id="btn-left" class="mobile-btn">←</div>
+                <div id="btn-right" class="mobile-btn">→</div>
+                <div id="btn-down" class="mobile-btn">↓</div>
+            </div>
+            <div id="action-pad">
+                <div id="btn-shoot" class="mobile-btn">FUEGO</div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="start-screen" class="overlay-screen">
+        <span style="color: #f1c40f;">¡YA SE DESPERTÓ EL MONSTRUO DE LA TAREA!</span><br>
+        <div class="start-options">
+            <button onclick="startIntroCutscene(false)">COMPU (TECLADO)</button>
+            <button onclick="startIntroCutscene(true)" style="border-color: #2ecc71;">CEL / TABLET</button>
+        </div>
+    </div>
+
+    <div id="game-over-screen" class="overlay-screen">
+        <span id="game-msg">¡CHIDO!</span><br>
+        <button onclick="resetGame()">Jugar otra vez</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const startScreen = document.getElementById("start-screen");
+        const gameOverScreen = document.getElementById("game-over-screen");
+        const gameWrapper = document.getElementById("game-wrapper");
+        const uiContainer = document.getElementById("ui-container");
+        const mobileControlsContainer = document.getElementById("mobile-controls");
+
+        // --- Variables de Control y Pausa ---
+        let isMobileMode = false;
+        let isPaused = false;
+
+        // --- Audio Assets Setup ---
+        let phase1Music, phase2Scream, playerVoice, phase2Music, winMusic, loseMusic;
+        try {
+            phase1Music = new Audio("phase1.wav"); phase1Music.loop = true; phase1Music.volume = 0.5;
+            phase2Scream = new Audio("scream.mp3"); phase2Scream.volume = 0.7;
+            playerVoice = new Audio("voice.mp3"); playerVoice.volume = 0.8;
+            phase2Music = new Audio("phase2.wav"); phase2Music.loop = true; phase2Music.volume = 0.5;
+            winMusic = new Audio("victory_fanfare.mp3"); winMusic.volume = 0.7;
+            loseMusic = new Audio("the-simpsons-nelsons-haha.mp3"); loseMusic.volume = 0.8;
+        } catch(e) {
+            console.log("Fallo de audio casual.");
+        }
+
+        // --- Image Assets Pipeline ---
+        let assetsLoaded = { player: false, boss: false, leftArm: false, rightArm: false };
+        const playerImg = new Image(); const bossImg = new Image(); const leftArmImg = new Image(); const rightArmImg = new Image(); 
+
+        playerImg.onload = () => assetsLoaded.player = true;
+        bossImg.onload = () => assetsLoaded.boss = true;
+        leftArmImg.onload = () => assetsLoaded.leftArm = true;
+        rightArmImg.onload = () => assetsLoaded.rightArm = true;
+
+        playerImg.src = "skeleton.png"; bossImg.src = "face.gif"; leftArmImg.src = "leftarm.png"; rightArmImg.src = "rightarm.png";
+
+        // --- Game Variables ---
+        let player = { x: 400, y: 450, w: 72, h: 120, speed: 7.5, hp: 100, maxHp: 100, isWalking: false, walkCycle: 0, attackFlash: 0 };
+        let boss = { x: 400, y: 130, baseW: 240, baseH: 170, w: 240, h: 170, hp: 600, maxHp: 600, speed: 3.5, dir: 1, currentAttack: "0/10", attackTimer: 0 };
+        
+        let currentPhase = 1;
+        let isTransitioning = false;
+        let transitionTimer = 0;
+        let showDialogue = false;
+        let dialogueTimer = 0;
+        let playedVoiceLine = false;
+        let arms = []; let bgOffsetY = 0; 
+        let projectiles = []; let playerProjectiles = []; let floatingTexts = []; 
+        let keys = {}; let gameActive = false; let frameCount = 0; let shootCooldown = 0;
+        let individualSheetsCount = 0; let zeroTenCounter = 0;
+
+        // --- Intro / Death / Win Variables ---
+        let introActive = false; let introStage = "walk_to_desk"; let introTimer = 0;
+        let deskX = 650; let deskY = 470; let printProgress = 0; let portalPaperScale = 0; let introShake = 0; let deskAlpha = 1.0;
+        let introMonsterY = 450; let introMonsterSize = 10;
+        let cutsceneActive = false; let cutsceneTimer = 0; let cutsceneStage = "grab"; 
+        let cutsceneBossY = 0; let cutsceneBossX = 0; let cutsceneBossW = 240; let cutsceneBossH = 170;
+        let cutsceneArmL = { x: -250, y: 450 }; let cutsceneArmR = { x: 1200, y: 450 }; let cutsceneShake = 0; let playerAlpha = 1.0;
+        let winActive = false; let winStage = "wake_up"; let winTimer = 0; let winConfetti = [];
+        let activeVirtualWidth = 800;
+
+        // --- Manejo de Eventos Teclado ---
+        window.addEventListener("keydown", e => { if(gameActive && !isPaused) keys[e.code] = true; });
+        window.addEventListener("keyup", e => { if(gameActive) keys[e.code] = false; });
+
+        // --- Configuración de Botones para Celular ---
+        function setupMobileControls() {
+            const binds = [
+                { id: "btn-up", key: "KeyW" }, { id: "btn-down", key: "KeyS" },
+                { id: "btn-left", key: "KeyA" }, { id: "btn-right", key: "KeyD" },
+                { id: "btn-shoot", key: "Space" }
+            ];
+            binds.forEach(b => {
+                const el = document.getElementById(b.id);
+                el.addEventListener("touchstart", (e) => { e.preventDefault(); if(gameActive && !isPaused) keys[b.key] = true; });
+                el.addEventListener("touchend", (e) => { e.preventDefault(); keys[b.key] = false; });
+            });
+        }
+        setupMobileControls();
+
+        function togglePause() {
+            if (!gameActive) return;
+            isPaused = !isPaused;
+            const pBtn = document.getElementById("pause-btn");
+            if (isPaused) {
+                pBtn.innerText = "DESPAUSAR";
+                safelyPauseSound(phase1Music);
+                safelyPauseSound(phase2Music);
+            } else {
+                pBtn.innerText = "PAUSA";
+                if (currentPhase === 1) safelyPlaySound(phase1Music);
+                else safelyPlaySound(phase2Music);
+            }
+        }
+
+        function safelyPlaySound(audioObj) {
+            try { if (audioObj && typeof audioObj.play === 'function') { audioObj.play().catch(e => {}); } } catch(err) {}
+        }
+        function safelyPauseSound(audioObj) {
+            try { if (audioObj && typeof audioObj.pause === 'function') { audioObj.pause(); } } catch(err) {}
+        }
+
+        function startIntroCutscene(mobileChoice) {
+            isMobileMode = mobileChoice;
+            startScreen.style.display = "none";
+            uiContainer.style.visibility = "hidden";
+            mobileControlsContainer.style.display = isMobileMode ? "flex" : "none";
+            
+            introActive = true;
+            introStage = "walk_to_desk";
+            introTimer = 0; printProgress = 0; portalPaperScale = 0; introShake = 0; deskAlpha = 1.0;
+            introMonsterY = deskY - 20; introMonsterSize = 10; playerAlpha = 1.0; isPaused = false;
+
+            player.x = -80; player.y = 440; player.isWalking = true;
+            activeVirtualWidth = 800;
+            gameWrapper.style.width = "800px";
+            canvas.style.borderColor = "#444";
+        }
+
+        function updateIntroCutscene() {
+            introTimer++;
+            if (introShake > 0) introShake -= 0.4;
+
+            if (introStage === "walk_to_desk") {
+                player.walkCycle += 0.25;
+                player.x += 3.5;
+                if (player.x >= deskX - 100) {
+                    player.x = deskX - 100; player.isWalking = false;
+                    introStage = "printing"; introTimer = 0;
+                }
+            }
+            else if (introStage === "printing") {
+                if (introTimer % 15 === 0 && printProgress < 100) introShake = 3;
+                printProgress += 0.8;
+                if (printProgress >= 100) {
+                    printProgress = 100; introStage = "spawn"; introTimer = 0;
+                    safelyPlaySound(phase2Scream);
+                }
+            }
+            else if (introStage === "spawn") {
+                introShake = 8;
+                introMonsterSize += (160 - introMonsterSize) * 0.08;
+                introMonsterY += ((deskY - 80) - introMonsterY) * 0.08;
+                if (introTimer > 60) { introStage = "drag"; introTimer = 0; }
+            }
+            else if (introStage === "drag") {
+                introShake = 12;
+                portalPaperScale += (1.0 - portalPaperScale) * 0.05;
+                player.y += (490 - player.y) * 0.08;
+                player.x += ((deskX + 20) - player.x) * 0.08;
+                introMonsterY += (490 - introMonsterY) * 0.08;
+                playerAlpha -= 0.025; deskAlpha -= 0.025;
+
+                if (playerAlpha <= 0) {
+                    playerAlpha = 0; deskAlpha = 0; introActive = false;
+                    startGame(); 
+                }
+            }
+        }
+
+        function startWinCutscene() {
+            gameActive = false; winActive = true; winStage = "wake_up"; winTimer = 0;
+            playerAlpha = 1.0; deskAlpha = 1.0; player.isWalking = false;
+            player.x = 220; player.y = 485; 
+            
+            uiContainer.style.visibility = "hidden";
+            mobileControlsContainer.style.display = "none";
+            canvas.style.borderColor = "#2ecc71";
+            canvas.style.boxShadow = "0 0 30px rgba(46, 204, 113, 0.4)";
+            
+            safelyPauseSound(phase1Music); safelyPauseSound(phase2Music);
+            safelyPlaySound(winMusic);
+
+            winConfetti = [];
+            for (let i = 0; i < 120; i++) {
+                winConfetti.push({
+                    x: Math.random() * 800, y: Math.random() * -600,
+                    w: Math.random() * 6 + 4, h: Math.random() * 8 + 6,
+                    color: `hsl(${Math.random() * 360}, 90%, 60%)`,
+                    vy: Math.random() * 1.5 + 1.5, vx: Math.random() * 1.5 - 0.75
+                });
+            }
+        }
+
+        function updateWinCutscene() {
+            winTimer++;
+            if (winStage === "wake_up") {
+                if (winTimer === 100) { player.y = 440; player.isWalking = true; }
+                if (winTimer > 100) {
+                    player.walkCycle += 0.15; player.x += 1.5;
+                    if (player.x >= deskX - 90) { player.x = deskX - 90; player.isWalking = false; }
+                }
+                if (winTimer > 340) {
+                    winStage = "school_hand_in"; winTimer = 0;
+                    player.x = 80; player.y = 440;
+                }
+            }
+            else if (winStage === "school_hand_in") {
+                if (player.x < 420) { player.isWalking = true; player.walkCycle += 0.15; player.x += 1.8; } 
+                else { player.isWalking = false; }
+
+                if (winTimer > 320) {
+                    winStage = "graduation"; winTimer = 0;
+                    player.x = 400 - player.w/2; player.y = 400;
+                }
+            }
+            else if (winStage === "graduation") {
+                winConfetti.forEach(c => {
+                    c.y += c.vy; c.x += c.vx;
+                    if (c.y > 600) { c.y = -20; c.x = Math.random() * 800; }
+                });
+                if (winTimer > 450) { winStage = "done"; winActive = false; endGame(true); }
+            }
+        }
+
+        function startGame() {
+            introActive = false; winActive = false;
+            uiContainer.style.visibility = "visible";
+            if (isMobileMode) mobileControlsContainer.style.display = "flex";
+            
+            currentPhase = 1; isTransitioning = false; transitionTimer = 0; showDialogue = false;
+            dialogueTimer = 0; playedVoiceLine = false; arms = []; keys = {};
+            individualSheetsCount = 0; zeroTenCounter = 0; cutsceneActive = false; playerAlpha = 1.0; isPaused = false;
+            
+            activeVirtualWidth = 800;
+            gameWrapper.style.width = "800px";
+            canvas.style.borderColor = "#ff4444";
+            canvas.style.boxShadow = "0 0 30px rgba(255, 68, 68, 0.2)";
+            document.getElementById("boss-health-bar").style.backgroundColor = "#e74c3c";
+            document.getElementById("pause-btn").innerText = "PAUSA";
+
+            player.hp = 100; player.x = 400; player.y = 450; player.isWalking = false;
+            boss.hp = 600; boss.x = 400; boss.y = 130; boss.speed = 3.5; boss.attackTimer = 0; boss.currentAttack = "0/10";
+            
+            projectiles = []; playerProjectiles = []; floatingTexts = [];
+            gameOverScreen.style.display = "none";
+            document.getElementById("player-health-bar").style.width = "100%";
+            document.getElementById("boss-health-bar").style.width = "100%";
+            
+            safelyPauseSound(phase2Music); safelyPauseSound(playerVoice); safelyPauseSound(winMusic); safelyPauseSound(loseMusic);
+            
+            gameActive = true;
+            if (phase1Music) phase1Music.currentTime = 0;
+            safelyPlaySound(phase1Music);
+        }
+
+        function triggerPhase2() {
+            currentPhase = 2; isTransitioning = true; playedVoiceLine = false; transitionTimer = 0; individualSheetsCount = 0; 
+            safelyPauseSound(phase1Music); safelyPlaySound(phase2Scream);
+            
+            activeVirtualWidth = 1000;
+            gameWrapper.style.width = "1000px";
+            canvas.style.borderColor = "#9b59b6"; 
+            canvas.style.boxShadow = "0 0 50px rgba(155, 89, 182, 0.6)";
+            document.getElementById("boss-health-bar").style.backgroundColor = "#9b59b6";
+
+            arms = [
+                { side: "left", x: -250, targetX: -50, y: 220, w: 220, h: 100, speed: 1.5, cycle: 0 },
+                { side: "right", x: 1050, targetX: 830, y: 300, w: 220, h: 100, speed: 1.8, cycle: Math.PI },
+                { side: "left", x: -250, targetX: -30, y: 390, w: 220, h: 100, speed: 1.3, cycle: Math.PI/2 },
+                { side: "right", x: 1050, targetX: 810, y: 470, w: 220, h: 100, speed: 1.6, cycle: Math.PI*1.5 }
+            ];
+        }
+
+        function startDeathCutscene() {
+            gameActive = false; cutsceneActive = true; cutsceneTimer = 0; cutsceneStage = "grab"; cutsceneShake = 0; playerAlpha = 1.0;
+            mobileControlsContainer.style.display = "none";
+            cutsceneBossY = boss.y; cutsceneBossX = boss.x; cutsceneBossW = boss.w; cutsceneBossH = boss.h;
+            cutsceneArmL = { x: -250, y: player.y + 10 }; cutsceneArmR = { x: activeVirtualWidth + 50, y: player.y + 10 };
+            safelyPauseSound(phase1Music); safelyPauseSound(phase2Music);
+        }
+
+        function updateDeathCutscene() {
+            cutsceneTimer++;
+            if (cutsceneShake > 0) cutsceneShake -= 0.5;
+
+            if (cutsceneStage === "grab") {
+                cutsceneBossY += ((player.y - 150) - cutsceneBossY) * 0.12;
+                cutsceneBossX += ((player.x + player.w/2) - cutsceneBossX) * 0.12;
+                cutsceneArmL.x += ((player.x - 130) - cutsceneArmL.x) * 0.15;
+                cutsceneArmR.x += ((player.x + player.w - 50) - cutsceneArmR.x) * 0.15;
+                if (cutsceneTimer > 45) { cutsceneStage = "write"; cutsceneTimer = 0; }
+            } 
+            else if (cutsceneStage === "write") {
+                cutsceneBossY = (player.y - 150) + Math.sin(cutsceneTimer * 0.4) * 4;
+                if (cutsceneTimer === 12) cutsceneShake = 12;
+                if (cutsceneTimer > 50) { cutsceneStage = "eat"; cutsceneTimer = 0; }
+            } 
+            else if (cutsceneStage === "eat") {
+                cutsceneBossW += (boss.baseW * 1.8 - cutsceneBossW) * 0.08;
+                cutsceneBossH += (boss.baseH * 1.8 - cutsceneBossH) * 0.08;
+                cutsceneBossY += ((player.y + player.h / 2) - cutsceneBossY) * 0.12;
+                if (cutsceneTimer > 15) { playerAlpha -= 0.06; if (playerAlpha < 0) playerAlpha = 0; }
+                if (cutsceneTimer === 12) safelyPlaySound(loseMusic);
+                if (cutsceneTimer > 60) { cutsceneStage = "done"; cutsceneActive = false; endGame(false); }
+            }
+        }
+
+        function updateBossAttackPattern() {
+            boss.attackTimer++;
+            let cycleRate = currentPhase === 2 ? 150 : 220; 
+            
+            if (boss.attackTimer > cycleRate) {
+                boss.attackTimer = 0;
+                const attacks = ["0/10", "Cortón de Hoja", "Tijeretazo Pro"];
+                boss.currentAttack = attacks[Math.floor(Math.random() * attacks.length)];
+            }
+
+            // Traducido a modismos de chamaco de 11 años
+            let attackNameDisplay = boss.currentAttack;
+            if (boss.currentAttack === "0/10") attackNameDisplay = "¡REPROBADO! (0/10)";
+            if (boss.currentAttack === "Cortón de Hoja") attackNameDisplay = "¡LLUVIA DE HOJAS ALV!";
+            if (boss.currentAttack === "Tijeretazo Pro") attackNameDisplay = "¡CUIDADO CON LAS TIJERAS!";
+
+            document.getElementById("boss-name-label").innerText = `EL CHOMPER DE LA TAREA [FASE ${currentPhase}] - ${attackNameDisplay}`;
+
+            let baseInterval = currentPhase === 2 ? 11 : 14; 
+            let dmgMultiplier = currentPhase === 2 ? 7 : 6;
+
+            if (boss.currentAttack === "0/10" && frameCount % baseInterval === 0) {
+                let dx = (player.x + player.w/2) - boss.x; let dy = (player.y + player.h/2) - boss.y;
+                let angle = Math.atan2(dy, dx);
+                zeroTenCounter++;
+                
+                if (zeroTenCounter % 5 === 0) {
+                    let isTen = Math.random() < 0.5;
+                    let healPct = isTen ? 0.22 : 0.15;
+                    let labelStr = isTen ? "10/10" : "9/10";
+                    let colStr = isTen ? "#f1c40f" : "#2ecc71";
+                    
+                    projectiles.push({
+                        type: "text", label: labelStr, color: colStr, font: "bold 22px monospace",
+                        x: boss.x, y: boss.y + 20,
+                        vx: Math.cos(angle) * (currentPhase === 2 ? 5.5 : 4.5), vy: Math.sin(angle) * (currentPhase === 2 ? 5.5 : 4.5),
+                        w: 45, h: 18, damage: -(player.maxHp * healPct), isHeal: true
+                    });
+                } else {
+                    projectiles.push({
+                        type: "text", label: "0/10", color: currentPhase === 2 ? "#9b59b6" : "#e74c3c", font: "bold 18px monospace",
+                        x: boss.x, y: boss.y + 20,
+                        vx: Math.cos(angle) * (currentPhase === 2 ? 6.5 : 5), vy: Math.sin(angle) * (currentPhase === 2 ? 6.5 : 5),
+                        w: 35, h: 15, damage: dmgMultiplier, isHeal: false
+                    });
+                }
+            } 
+            else if (boss.currentAttack === "Cortón de Hoja" && frameCount % (baseInterval - 2) === 0) {
+                if (currentPhase === 2) {
+                    individualSheetsCount++;
+                    if (individualSheetsCount === 50) {
+                        individualSheetsCount = 0; 
+                        let dx = (player.x + player.w/2) - boss.x; let dy = (player.y + player.h/2) - boss.y;
+                        let angle = Math.atan2(dy, dx);
+                        projectiles.push({
+                            type: "calculator", x: boss.x, y: boss.y + 20,
+                            vx: Math.cos(angle) * 5.5, vy: Math.sin(angle) * 5.5,
+                            w: 40, h: 55, angle: 0, damage: -25, isHeal: true 
+                        });
+                    } else {
+                        projectiles.push({
+                            type: "paper", color: "#f5f6fa", x: boss.x + (Math.random() * 160 - 80), y: boss.y + 20, 
+                            vx: Math.sin(frameCount * 0.1) * 3, vy: 5.5, w: 24, h: 32, angle: Math.random() * Math.PI, damage: dmgMultiplier, isHeal: false
+                        });
+                    }
+                } else {
+                    projectiles.push({
+                        type: "paper", color: "#f5f6fa", x: boss.x + (Math.random() * 160 - 80), y: boss.y + 20, 
+                        vx: Math.sin(frameCount * 0.1) * 3, vy: 4.5, w: 24, h: 32, angle: Math.random() * Math.PI, damage: dmgMultiplier, isHeal: false
+                    });
+                }
+            }
+            else if (boss.currentAttack === "Tijeretazo Pro" && frameCount % (baseInterval * 2) === 0) {
+                projectiles.push({
+                    type: "scissor", color: "#95a5a6", x: player.x + player.w/2 + (Math.random() * 80 - 40), y: -50, 
+                    vx: 0, vy: currentPhase === 2 ? 8.5 : 7.5, w: 30, h: 60, damage: dmgMultiplier * 1.5, isHeal: false
+                });
+            }
+        }
+
+        function update() {
+            if (isPaused) return; // Parar lógicas si hay pausa
+
+            if (introActive) { updateIntroCutscene(); return; }
+            if (winActive) { updateWinCutscene(); return; }
+            if (cutsceneActive) { updateDeathCutscene(); return; }
+
+            if (isTransitioning) {
+                transitionTimer++;
+                boss.w = boss.baseW + Math.random() * 24 - 12;
+                boss.h = boss.baseH + Math.random() * 24 - 12;
+                if (frameCount % 4 === 0) {
+                    document.body.style.filter = `hue-rotate(${Math.random() * 360}deg) invert(${Math.random() > 0.5 ? 1 : 0})`;
+                }
+                arms.forEach(arm => {
+                    if (arm.side === "left" && arm.x < arm.targetX) arm.x += 6;
+                    if (arm.side === "right" && arm.x > arm.targetX) arm.x -= 6;
+                });
+
+                if (transitionTimer > 120) { 
+                    if (!showDialogue && !playedVoiceLine) {
+                        showDialogue = true; playedVoiceLine = true; dialogueTimer = 0;
+                        safelyPlaySound(playerVoice);
+                    }
+                }
+                if (showDialogue) {
+                    dialogueTimer++;
+                    if (dialogueTimer > 100 || (playerVoice && playerVoice.ended)) { 
+                        showDialogue = false; isTransitioning = false; boss.speed = 5.0; 
+                        document.body.style.filter = "none"; safelyPlaySound(phase2Music);
+                    }
+                }
+                return; 
+            }
+
+            frameCount++;
+            if (shootCooldown > 0) shootCooldown--;
+            if (player.attackFlash > 0) player.attackFlash--;
+
+            bgOffsetY = (bgOffsetY + 1.5) % 40;
+            player.isWalking = false;
+
+            if (keys['KeyW'] || keys['ArrowUp']) { if (player.y > 280) player.y -= player.speed; player.isWalking = true; bgOffsetY = (bgOffsetY + 2) % 40; }
+            if (keys['KeyS'] || keys['ArrowDown']) { if (player.y < canvas.height - player.h - 10) player.y += player.speed; player.isWalking = true; bgOffsetY = (bgOffsetY - 2) % 40; }
+            if (keys['KeyA'] || keys['ArrowLeft']) { if (player.x > 10) player.x -= player.speed; player.isWalking = true; }
+            if (keys['KeyD'] || keys['ArrowRight']) { if (player.x < activeVirtualWidth - player.w - 10) player.x += player.speed; player.isWalking = true; }
+
+            if (player.isWalking) player.walkCycle += 0.25;
+
+            if (keys['Space'] && shootCooldown === 0) {
+                const ammoTypes = [
+                    { label: "✎ Lápiz", color: "#f1c40f", w: 10, h: 25 },
+                    { label: "■ Goma", color: "#ff758c", w: 18, h: 14 }
+                ];
+                let chosenAmmo = ammoTypes[Math.floor(Math.random() * ammoTypes.length)];
+                playerProjectiles.push({
+                    x: player.x + player.w / 2 - chosenAmmo.w/2, y: player.y,
+                    w: chosenAmmo.w, h: chosenAmmo.h, label: chosenAmmo.label, color: chosenAmmo.color, speed: 11
+                });
+                shootCooldown = 8; player.attackFlash = 4;
+            }
+
+            boss.x += boss.speed * boss.dir;
+            if (boss.x > activeVirtualWidth - boss.w/2 - 10 || boss.x < boss.w/2 + 10) boss.dir *= -1;
+            boss.y = 130 + Math.sin(frameCount * 0.05) * 15;
+            boss.w = boss.baseW + Math.sin(frameCount * 0.1) * 8;
+            boss.h = boss.baseH + Math.cos(frameCount * 0.1) * 6;
+
+            updateBossAttackPattern();
+
+            if (currentPhase === 2) {
+                arms.forEach(arm => {
+                    arm.cycle += 0.03;
+                    let sweep = Math.sin(arm.cycle) * 45; 
+                    if (arm.side === "left") arm.x = arm.targetX + sweep;
+                    else arm.x = arm.targetX - sweep;
+
+                    if (arm.x + 30 < player.x + player.w && arm.x + arm.w - 30 > player.x &&
+                        arm.y + 10 < player.y + player.h && arm.y + arm.h - 10 > player.y) {
+                        if (frameCount % 12 === 0) { 
+                            player.hp -= 3;
+                            document.getElementById("player-health-bar").style.width = (player.hp / player.maxHp * 100) + "%";
+                            if (player.hp <= 0) startDeathCutscene();
+                        }
+                    }
+                });
+            }
+
+            for (let i = playerProjectiles.length - 1; i >= 0; i--) {
+                let m = playerProjectiles[i]; m.y -= m.speed;
+                if (m.x + m.w > boss.x - boss.w/2 && m.x < boss.x + boss.w/2 && m.y + m.h > boss.y - boss.h/2 && m.y < boss.y + boss.h/2) {
+                    if (!isTransitioning) {
+                        boss.hp -= 10;
+                        document.getElementById("boss-health-bar").style.width = (boss.hp / boss.maxHp * 100) + "%";
+                        if (boss.hp <= 300 && currentPhase === 1) triggerPhase2();
+                        if (boss.hp <= 0) startWinCutscene();
+                    }
+                    playerProjectiles.splice(i, 1); continue;
+                }
+                if (m.y < -30) playerProjectiles.splice(i, 1);
+            }
+
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                let p = projectiles[i]; p.x += p.vx; p.y += p.vy;
+                if (p.x - (p.w/2) < player.x + player.w && p.x + (p.w/2) > player.x && p.y < player.y + player.h && p.y + p.h > player.y) {
+                    if (p.isHeal) {
+                        player.hp = Math.min(player.maxHp, player.hp - p.damage); 
+                        let textLabel = p.damage === -(player.maxHp * 0.22) ? "+22% Vida" : "+15% Vida";
+                        floatingTexts.push({ x: player.x + player.w/2, y: player.y, text: textLabel, timer: 45, color: "#2ecc71" });
+                    } else { player.hp -= p.damage; }
+                    document.getElementById("player-health-bar").style.width = (player.hp / player.maxHp * 100) + "%";
+                    projectiles.splice(i, 1);
+                    if (player.hp <= 0) startDeathCutscene(); continue;
+                }
+                if (p.type === "calculator") p.angle += 0.05;
+                if (p.y > canvas.height + 100 || p.x < -100 || p.x > activeVirtualWidth + 100) projectiles.splice(i, 1);
+            }
+
+            for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                floatingTexts[i].y -= 1; floatingTexts[i].timer--;
+                if (floatingTexts[i].timer <= 0) floatingTexts.splice(i, 1);
+            }
+        }
+
+        function draw() {
+            ctx.save();
+            let currentShake = introActive ? introShake : (cutsceneActive ? cutsceneShake : 0);
+            if (currentShake > 0) ctx.translate((Math.random() - 0.5) * currentShake, (Math.random() - 0.5) * currentShake);
+
+            if (currentPhase === 2 && !isTransitioning && !cutsceneActive && !introActive && !winActive) {
+                ctx.translate(canvas.width / 2 + Math.sin(frameCount * 0.03) * 6, canvas.height / 2 + Math.cos(frameCount * 0.02) * 4);
+                ctx.rotate(Math.sin(frameCount * 0.015) * 0.012);
+                ctx.translate(-canvas.width / 2, -canvas.height / 2);
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.beginPath(); ctx.rect(0, 0, activeVirtualWidth, canvas.height); ctx.clip();
+
+            // --- ESCENARIOS (INTRO / CORTES) ---
+            if (introActive || (winActive && winStage === "wake_up")) {
+                ctx.strokeStyle = "#1b1116"; ctx.lineWidth = 4;
+                for(let j = 440; j < canvas.height; j += 25) {
+                    ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(activeVirtualWidth, j); ctx.stroke();
+                }
+                ctx.save(); ctx.globalAlpha = deskAlpha;
+                ctx.fillStyle = "#5c3d2e"; ctx.fillRect(deskX, deskY, 140, 12);
+                ctx.fillRect(deskX + 15, deskY + 12, 12, 80); ctx.fillRect(deskX + 110, deskY + 12, 12, 80);
+                ctx.fillStyle = "#2c3e50"; ctx.fillRect(deskX + 20, deskY - 46, 46, 36); 
+                ctx.fillStyle = "#111"; ctx.fillRect(deskX + 23, deskY - 43, 40, 30); 
+                ctx.fillStyle = "#7f8c8d"; ctx.fillRect(deskX + 38, deskY - 10, 10, 10); 
+                
+                if (introActive && introStage === "printing") {
+                    ctx.fillStyle = "#2ecc71"; ctx.fillRect(deskX + 27, deskY - 32, (printProgress / 100) * 32, 5);
+                    ctx.fillStyle = "#fff"; ctx.font = "bold 7px monospace"; ctx.fillText("IMPRIMIENDO", deskX + 22, deskY - 37);
+                }
+                ctx.fillStyle = "#00d2d3"; ctx.fillRect(deskX + 80, deskY - 26, 45, 26);
+                ctx.fillStyle = "#341f97"; ctx.fillRect(deskX + 85, deskY - 18, 35, 4); 
+
+                if (winActive && winStage === "wake_up") {
+                    ctx.fillStyle = "#ffffff"; ctx.fillRect(deskX + 87, deskY - 32, 20, 6); 
+                    ctx.strokeStyle = "#2ecc71"; ctx.lineWidth = 1.5; ctx.strokeRect(deskX + 87, deskY - 32, 20, 6);
+                    if (frameCount % 20 < 12) { ctx.fillStyle = "#2ecc71"; ctx.font = "bold 13px monospace"; ctx.fillText("✓", deskX + 91, deskY - 36); }
+                }
+                ctx.restore();
+
+                if (introActive && introStage === "drag") {
+                    ctx.save(); ctx.fillStyle = "#ffffff"; ctx.shadowColor = "#341f97"; ctx.shadowBlur = 30;
+                    ctx.translate(deskX + 20, 520); ctx.scale(portalPaperScale * 2.5, portalPaperScale * 0.3);
+                    ctx.beginPath(); ctx.arc(0, 0, 80, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+                }
+
+                if (introActive && (introStage === "spawn" || introStage === "drag")) {
+                    ctx.save(); ctx.translate(deskX + 102, introMonsterY);
+                    if (assetsLoaded.boss) { ctx.drawImage(bossImg, -introMonsterSize/2, -introMonsterSize/2, introMonsterSize, introMonsterSize); } 
+                    else { ctx.fillStyle = "#e74c3c"; ctx.fillRect(-introMonsterSize/2, -introMonsterSize/2, introMonsterSize, introMonsterSize); }
+                    ctx.restore();
+                }
+            }
+
+            if (winActive && winStage === "school_hand_in") {
+                ctx.fillStyle = "#1e3d2f"; ctx.fillRect(80, 100, 640, 200);
+                ctx.strokeStyle = "#5c3d2e"; ctx.lineWidth = 8; ctx.strokeRect(80, 100, 640, 200);
+                ctx.fillStyle = "rgba(255,255,255,0.12)"; ctx.font = "24px monospace";
+                ctx.fillText("Examen Final Sexto de Primaria", 110, 150); ctx.fillText("¡Pasaste con 10!", 120, 190);
+                ctx.fillStyle = "#4a2e2b"; ctx.fillRect(520, 380, 160, 180);
+                ctx.fillStyle = "#0c0d12"; ctx.beginPath(); ctx.arc(600, 310, 28, 0, Math.PI * 2); ctx.fill(); ctx.fillRect(565, 338, 70, 50); 
+                ctx.fillStyle = "#2ecc71"; ctx.fillRect(585, 298, 30, 22);
+                ctx.fillStyle = "#111"; ctx.fillRect(588, 301, 24, 16);
+
+                if (player.x >= 415) {
+                    ctx.fillStyle = "#fff"; ctx.fillRect(485, 410, 25, 32);
+                    ctx.fillStyle = "#111"; ctx.font = "bold 10px monospace"; ctx.fillText("10/10", 487, 428);
+                    ctx.fillStyle = "#fff"; ctx.fillRect(500, 200, 180, 45);
+                    ctx.fillStyle = "#000"; ctx.font = "bold 12px monospace";
+                    ctx.fillText("¡Te la rifaste!", 510, 220); ctx.fillText("Estás aprobado.", 510, 235);
+                }
+            }
+
+            if (winActive && winStage === "graduation") {
+                ctx.fillStyle = "#d35400"; ctx.fillRect(0, 480, 800, 120);
+                ctx.fillStyle = "rgba(46, 204, 113, 0.15)"; ctx.fillRect(50, 60, 700, 140);
+                ctx.strokeStyle = "#f1c40f"; ctx.lineWidth = 4; ctx.strokeRect(50, 60, 700, 140);
+                ctx.fillStyle = "#fff"; ctx.font = "bold 32px monospace"; ctx.fillText("ADIÓS PRIMARIA", 260, 110);
+                ctx.fillStyle = "#f1c40f"; ctx.font = "bold 20px monospace"; ctx.fillText("¡GRADUADO DE SEXTO! → VA CON TODO A LA SECU", 140, 160);
+                winConfetti.forEach(c => { ctx.fillStyle = c.color; ctx.fillRect(c.x, c.y, c.w, c.h); });
+            }
+
+            if (!introActive && (!winActive || winStage === "done")) {
+                ctx.strokeStyle = currentPhase === 2 ? "rgba(155, 89, 182, 0.2)" : "#1a1a1a"; ctx.lineWidth = 2;
+                for(let i=0; i<activeVirtualWidth; i+=40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke(); }
+                for(let j = bgOffsetY - 40; j < canvas.height; j += 40) { ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(activeVirtualWidth, j); ctx.stroke(); }
+            }
+
+            if (currentPhase === 2 && !cutsceneActive && !introActive && !winActive) {
+                arms.forEach(arm => {
+                    if (arm.side === "left" ? assetsLoaded.leftArm : assetsLoaded.rightArm) {
+                        ctx.drawImage(arm.side === "left" ? leftArmImg : rightArmImg, arm.x, arm.y, arm.w, arm.h);
+                    } else { ctx.fillStyle = "purple"; ctx.fillRect(arm.x, arm.y, arm.w, arm.h); }
+                });
+            }
+
+            if (!cutsceneActive || cutsceneStage !== "done") {
+                ctx.save(); ctx.globalAlpha = playerAlpha;
+                if (winActive && winStage === "wake_up" && winTimer < 100) {
+                    ctx.translate(player.x + player.w/2, player.y + player.h/2); ctx.rotate(Math.PI / 2);
+                    ctx.translate(-(player.x + player.w/2), -(player.y + player.h/2));
+                } else if (player.isWalking) {
+                    ctx.translate(player.x + player.w/2, player.y + player.h); ctx.rotate(Math.sin(player.walkCycle) * 0.06);
+                    ctx.translate(-(player.x + player.w/2), -(player.y + player.h));
+                }
+                if (assetsLoaded.player) { ctx.drawImage(playerImg, player.x, player.y, player.w, player.h); } 
+                else { ctx.fillStyle = "#fff"; ctx.fillRect(player.x, player.y, player.w, player.h); }
+                ctx.restore();
+            }
+
+            if (!introActive && !winActive) {
+                if (showDialogue) {
+                    ctx.fillStyle = "rgba(0, 0, 0, 0.9)"; ctx.strokeStyle = "#9b59b6"; ctx.lineWidth = 2;
+                    ctx.fillRect(player.x - 65, player.y - 45, 210, 32); ctx.strokeRect(player.x - 65, player.y - 45, 210, 32);
+                    ctx.fillStyle = "#ffffff"; ctx.font = "bold 11px monospace";
+                    ctx.fillText("Ya me dio amsiedá esta madre", player.x - 58, player.y - 25); // Frase cambiada
+                }
+
+                playerProjectiles.forEach(m => { ctx.fillStyle = m.color; ctx.font = "bold 14px monospace"; ctx.fillText(m.label, m.x, m.y); });
+
+                let drawW = cutsceneActive ? cutsceneBossW : boss.w;
+                let drawH = cutsceneActive ? cutsceneBossH : boss.h;
+                let drawY = cutsceneActive ? cutsceneBossY : boss.y;
+                let drawX = cutsceneActive ? cutsceneBossX : boss.x;
+
+                if (assetsLoaded.boss) {
+                    let chompOffset = Math.abs(Math.sin(frameCount * 0.15)) * 20;
+                    if (isTransitioning) chompOffset = 45;
+                    if (cutsceneActive && cutsceneStage === "eat") chompOffset = 65 + (cutsceneTimer * 2.2);
+                    ctx.save(); ctx.translate(drawX, drawY);
+                    ctx.drawImage(bossImg, 0, 0, bossImg.naturalWidth, bossImg.naturalHeight / 2, -drawW / 2, -drawH / 2 - chompOffset / 2, drawW, drawH / 2);
+                    ctx.drawImage(bossImg, 0, bossImg.naturalHeight / 2, bossImg.naturalWidth, bossImg.naturalHeight / 2, -drawW / 2, 0 + chompOffset / 2, drawW, drawH / 2);
+                    ctx.restore();
+                } else {
+                    ctx.fillStyle = "#e74c3c"; ctx.fillRect(drawX - drawW/2, drawY - drawH/2, drawW, drawH);
+                }
+
+                if (!cutsceneActive) {
+                    projectiles.forEach(p => {
+                        if (p.type === "text") {
+                            ctx.fillStyle = p.color; ctx.font = p.font;
+                            ctx.fillText(p.label, p.x - p.w/2, p.y + 12);
+                        } else if (p.type === "paper") {
+                            ctx.save(); ctx.translate(p.x, p.y + p.h/2); ctx.rotate(frameCount * 0.04 + p.angle);
+                            ctx.fillStyle = p.color; ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h); ctx.restore();
+                        } else if (p.type === "scissor") {
+                            ctx.save(); ctx.translate(p.x, p.y); ctx.strokeStyle = p.color; ctx.lineWidth = 4;
+                            ctx.beginPath(); ctx.moveTo(-10, -20); ctx.lineTo(10, 20); ctx.stroke(); ctx.restore();
+                        } else if (p.type === "calculator") {
+                            ctx.save(); ctx.translate(p.x, p.y + p.h/2); ctx.rotate(p.angle);
+                            ctx.fillStyle = "#2c3e50"; ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h); ctx.restore();
+                        }
+                    });
+                }
+                floatingTexts.forEach(f => { ctx.fillStyle = f.color; ctx.font = "bold 16px monospace"; ctx.fillText(f.text, f.x - 20, f.y); });
+            }
+            ctx.restore();
+        }
+
+        function gameLoop() {
+            // El loop corre pero update se salta si hay pausa
+            if (gameActive || cutsceneActive || introActive || winActive) update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+        requestAnimationFrame(gameLoop);
+
+        function endGame(win) {
+            gameActive = false; cutsceneActive = false; introActive = false; winActive = false; isPaused = false;
+            document.body.style.filter = "none";
+            safelyPauseSound(phase1Music); safelyPauseSound(phase2Scream); safelyPauseSound(phase2Music);
+            
+            gameOverScreen.style.display = "block";
+            const msg = document.getElementById("game-msg");
+            if (win) {
+                msg.innerText = "¡JAJAJA TOMALA! ¡TE GRADUASTE PAPU!";
+                msg.style.color = "#2ecc71";
+                safelyPlaySound(winMusic);
+            } else {
+                msg.innerText = "F EN EL CHAT, REPROBASTE BIEN PARADO";
+                msg.style.color = "#e74c3c";
+                safelyPlaySound(loseMusic);
+            }
+        }
+
+        function resetGame() { startIntroCutscene(isMobileMode); }
+    </script>
+</body>
+</html>
