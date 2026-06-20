@@ -329,9 +329,11 @@
         const targetKonamiCode = ["up", "up", "down", "down", "left", "right", "left", "right"];
 
         // --- Audio Assets Pipeline ---
-        let phase1Music, phase2Scream, playerVoice, phase2Music, winMusic, loseMusic;
-        try {
-            phase1Music = new Audio("Phase1.wav"); phase1Music.loop = true; phase1Music.volume = 0.5; // FIXED: Capital P to match repository path
+ // --- Audio Assets Pipeline ---
+let phase1Music, phase2Scream, playerVoice, phase2Music, winMusic, loseMusic;
+try {
+    phase1Music = new Audio("Phase1.wav"); // <-- Make sure this matches your file EXACTLY
+    phase1Music.loop = true; phase1Music.volume = 0.5; // FIXED: Capital P to match repository path
             phase2Scream = new Audio("scream.mp3"); phase2Scream.volume = 0.7;
             playerVoice = new Audio("voice.mp3"); playerVoice.volume = 0.8;
             phase2Music = new Audio("phase2.wav"); phase2Music.loop = true; phase2Music.volume = 0.5;
