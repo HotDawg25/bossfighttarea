@@ -83,7 +83,7 @@
             box-shadow: 0 0 30px rgba(255, 68, 68, 0.2);
             width: 100%;
             transition: border-color 0.5s, box-shadow 0.5s;
-            cursor: pointer; /* Shows pointer tool during intro */
+            cursor: pointer;
         }
 
         .overlay-screen {
@@ -410,32 +410,44 @@
         });
         window.addEventListener("keyup", e => { if(gameActive) keys[e.code] = false; });
 
-        // --- INTRO CUTSCENE KEYBOARD SKIP FEATURE ---
+        // --- GLOBAL KEYBOARD INPUTS (INTRO & OUTRO SKIP) ---
         let typedSkipBuffer = "";
         setInterval(() => { if (typedSkipBuffer.length > 0) typedSkipBuffer = ""; }, 3000);
 
         window.addEventListener("keydown", e => {
-            if (!introActive) return; // Only listen if the cinematic introduction is playing
-            if (e.key.length === 1) {
+            // Intro Cutscene: Skip using "skip" phrase
+            if (introActive && e.key.length === 1) {
                 typedSkipBuffer += e.key.toLowerCase();
                 if (typedSkipBuffer.endsWith("skip")) {
                     typedSkipBuffer = "";
                     showDialogue = false;
-                    introActive = false; // Bypasses the sequence
-                    startGame();         // Forces game initialization instantly
+                    introActive = false;
+                    startGame();
                 }
+            }
+            // Final Cutscene: Skip instantly by pressing Enter
+            if (winActive && e.code === "Enter") {
+                winActive = false;
+                endGame(true);
             }
         });
 
-        // --- MOUSE CLICK INTERACTION HOOK (SKIP DIALOGUE FEATURE) ---
-        canvas.addEventListener("click", e => {
-            // Click to advance lines instantly during intro cutscene
+        // --- MOUSE CLICK / TOUCH SCREEN HOOKS ---
+        function handleScreenInteraction() {
             if (introActive) {
                 if (introStage === "dialogue_360_1") { introStage = "dialogue_360_2"; introTimer = 0; }
                 else if (introStage === "dialogue_360_2") { introStage = "dialogue_360_3"; introTimer = 0; }
                 else if (introStage === "dialogue_360_3") { showDialogue = false; introStage = "printing"; introTimer = 0; }
             }
-        });
+            // Skip stage sequence or finish directly on final cutscene tap
+            if (winActive) {
+                if (winStage === "wake_up") { winStage = "school_hand_in"; winTimer = 0; player.x = 80; player.y = 440; }
+                else if (winStage === "school_hand_in") { winStage = "graduation"; winTimer = 0; player.x = 400 - player.w/2; player.y = 400; }
+                else if (winStage === "graduation") { winActive = false; endGame(true); }
+            }
+        }
+
+        canvas.addEventListener("click", () => { handleScreenInteraction(); });
 
         window.addEventListener("touchstart", e => {
             if (!introActive && !gameActive && !winActive) {
@@ -444,14 +456,11 @@
         }, {passive: true});
 
         window.addEventListener("touchend", e => {
-            if (introActive) {
-                // Allows tapping screens on mobile mode to skip lines too
-                if (introStage === "dialogue_360_1") { introStage = "dialogue_360_2"; introTimer = 0; }
-                else if (introStage === "dialogue_360_2") { introStage = "dialogue_360_3"; introTimer = 0; }
-                else if (introStage === "dialogue_360_3") { showDialogue = false; introStage = "printing"; introTimer = 0; }
+            if (introActive || winActive) {
+                handleScreenInteraction();
                 return;
             }
-            if (gameActive || winActive) return;
+            if (gameActive) return;
             let dx = e.changedTouches[0].clientX - touchStartPos.x;
             let dy = e.changedTouches[0].clientY - touchStartPos.y;
             let absX = Math.abs(dx); let absY = Math.abs(dy);
@@ -536,7 +545,7 @@
                 if (player.x >= deskX - 100) { player.x = deskX - 100; player.isWalking = false; introStage = "dialogue_360_1"; introTimer = 0; }
             }
             else if (introStage === "dialogue_360_1") {
-                showDialogue = true; // Auto-skip backup timer if player doesn't click
+                showDialogue = true;
                 if (introTimer > 320) { introStage = "dialogue_360_2"; introTimer = 0; }
             }
             else if (introStage === "dialogue_360_2") {
@@ -732,7 +741,6 @@
                     playerProjectiles.push({ x: player.x + player.w/2 - 25, y: player.y, w: 55, h: 35, type: "GIANT_ERASER", speed: 18 }); 
                     shootCooldown = 2; 
                 } else {
-                    // Randomly choose between throwing a real physical pencil shape or a pink eraser shape
                     let choice = Math.random() < 0.5 ? "PENCIL" : "ERASER";
                     if (choice === "PENCIL") {
                         playerProjectiles.push({ x: player.x + player.w / 2 - 4, y: player.y, w: 8, h: 40, type: "PENCIL", speed: 11 });
@@ -820,6 +828,12 @@
                     if (assetsLoaded.boss) { ctx.drawImage(bossImg, -introMonsterSize/2, -introMonsterSize/2, introMonsterSize, introMonsterSize); } else { ctx.fillStyle = "#e74c3c"; ctx.fillRect(-introMonsterSize/2, -introMonsterSize/2, introMonsterSize, introMonsterSize); }
                     ctx.restore();
                 }
+                
+                // Overlay skip helper for final scenes
+                if (winActive && winStage === "wake_up") {
+                    ctx.fillStyle = "rgba(255, 255, 255, 0.4)"; ctx.font = "12px monospace";
+                    ctx.fillText("[Enter / Tap para Saltar]", 20, 35);
+                }
             }
 
             if (winActive && winStage === "school_hand_in") {
@@ -829,11 +843,15 @@
                     ctx.fillStyle = "#fff"; ctx.fillRect(485, 410, 25, 32); ctx.fillStyle = "#111"; ctx.font = "bold 10px monospace"; ctx.fillText("10/10", 487, 428); ctx.fillStyle = "#fff"; ctx.fillRect(500, 200, 180, 45); ctx.fillStyle = "#000"; ctx.font = "bold 12px monospace";
                     ctx.fillText("¡Excelente trabajo!", 510, 220); ctx.fillText("Has aprobado.", 510, 235);
                 }
+                ctx.fillStyle = "rgba(255, 255, 255, 0.4)"; ctx.font = "12px monospace";
+                ctx.fillText("[Enter / Tap para Saltar]", 20, 35);
             }
 
             if (winActive && winStage === "graduation") {
                 ctx.fillStyle = "#d35400"; ctx.fillRect(0, 480, 800, 120); ctx.fillStyle = "rgba(46, 204, 113, 0.15)"; ctx.fillRect(50, 60, 700, 140); ctx.strokeStyle = "#f1c40f"; ctx.lineWidth = 4; ctx.strokeRect(50, 60, 700, 140); ctx.fillStyle = "#fff"; ctx.font = "bold 32px monospace"; ctx.fillText("FIN DE LA PRIMARIA", 240, 110); ctx.fillStyle = "#f1c40f"; ctx.font = "bold 20px monospace"; ctx.fillText("¡GRADUADO! → PRÓXIMO NIVEL: SECUNDARIA", 180, 160);
                 winConfetti.forEach(c => { ctx.fillStyle = c.color; ctx.fillRect(c.x, c.y, c.w, c.h); });
+                ctx.fillStyle = "rgba(255, 255, 255, 0.6)"; ctx.font = "12px monospace";
+                ctx.fillText("[Presiona ENTER o Toca la pantalla para finalizar]", 220, 235);
             }
 
             if (!introActive && (!winActive || winStage === "done")) {
@@ -861,60 +879,28 @@
                     ctx.fillStyle = "#ffffff"; ctx.font = "bold 11px monospace"; ctx.fillText("Esta situación es muy estresante", player.x - 58, player.y - 25);
                 }
 
-                // --- DRAW PHYSICAL PROJECTILE OBJECTS (NO STRINGS) ---
                 playerProjectiles.forEach(m => {
                     ctx.save();
                     ctx.translate(m.x + m.w / 2, m.y + m.h / 2);
 
                     if (m.type === "PENCIL") {
-                        // Draw main yellow body
                         ctx.fillStyle = "#ffcc00";
                         ctx.fillRect(-m.w / 2, -m.h / 2 + 8, m.w, m.h - 14);
-                        
-                        // Draw wood & lead tip pointed upwards
-                        ctx.fillStyle = "#e0ac9d"; // Wood tone
-                        ctx.beginPath();
-                        ctx.moveTo(-m.w / 2, -m.h / 2 + 8);
-                        ctx.lineTo(0, -m.h / 2);
-                        ctx.lineTo(m.w / 2, -m.h / 2 + 8);
-                        ctx.fill();
-
-                        ctx.fillStyle = "#1a1a1a"; // Graphite tip point
-                        ctx.beginPath();
-                        ctx.moveTo(-2, -m.h / 2 + 4);
-                        ctx.lineTo(0, -m.h / 2);
-                        ctx.lineTo(2, -m.h / 2 + 4);
-                        ctx.fill();
-
-                        // Draw classic pink eraser on the rear bottom
+                        ctx.fillStyle = "#e0ac9d";
+                        ctx.beginPath(); ctx.moveTo(-m.w / 2, -m.h / 2 + 8); ctx.lineTo(0, -m.h / 2); ctx.lineTo(m.w / 2, -m.h / 2 + 8); ctx.fill();
+                        ctx.fillStyle = "#1a1a1a";
+                        ctx.beginPath(); ctx.moveTo(-2, -m.h / 2 + 4); ctx.lineTo(0, -m.h / 2); ctx.lineTo(2, -m.h / 2 + 4); ctx.fill();
                         ctx.fillStyle = "#ff9999";
                         ctx.fillRect(-m.w / 2, m.h / 2 - 6, m.w, 6);
                     } 
                     else if (m.type === "ERASER") {
-                        // Draw standard slanted pink eraser shape
                         ctx.fillStyle = "#ffb3ba";
-                        ctx.beginPath();
-                        ctx.moveTo(-m.w / 2, -m.h / 2 + 4);
-                        ctx.lineTo(m.w / 2, -m.h / 2);
-                        ctx.lineTo(m.w / 2, m.h / 2 - 4);
-                        ctx.lineTo(-m.w / 2, m.h / 2);
-                        ctx.closePath();
-                        ctx.fill();
+                        ctx.beginPath(); ctx.moveTo(-m.w / 2, -m.h / 2 + 4); ctx.lineTo(m.w / 2, -m.h / 2); ctx.lineTo(m.w / 2, m.h / 2 - 4); ctx.lineTo(-m.w / 2, m.h / 2); ctx.closePath(); ctx.fill();
                     }
                     else if (m.type === "GIANT_ERASER") {
-                        // Draw Administrator Blue Super Eraser
-                        ctx.fillStyle = "#00dbff";
-                        ctx.shadowColor = "#00dbff";
-                        ctx.shadowBlur = 15;
-                        ctx.beginPath();
-                        ctx.moveTo(-m.w / 2, -m.h / 2 + 6);
-                        ctx.lineTo(m.w / 2, -m.h / 2);
-                        ctx.lineTo(m.w / 2, m.h / 2 - 6);
-                        ctx.lineTo(-m.w / 2, m.h / 2);
-                        ctx.closePath();
-                        ctx.fill();
+                        ctx.fillStyle = "#00dbff"; ctx.shadowColor = "#00dbff"; ctx.shadowBlur = 15;
+                        ctx.beginPath(); ctx.moveTo(-m.w / 2, -m.h / 2 + 6); ctx.lineTo(m.w / 2, -m.h / 2); ctx.lineTo(m.w / 2, m.h / 2 - 6); ctx.lineTo(-m.w / 2, m.h / 2); ctx.closePath(); ctx.fill();
                     }
-                    
                     ctx.restore();
                 });
 
@@ -935,36 +921,22 @@
                 floatingTexts.forEach(f => { ctx.fillStyle = f.color; ctx.font = "bold 16px monospace"; ctx.fillText(f.text, f.x - 20, f.y); });
             }
 
-            // --- INTRO DIALOGUE DRAW MODULE (ENLARGED + CLICK ACTION INSTRUCTIONS) ---
             if (showDialogue && introActive) {
-                ctx.fillStyle = "rgba(0, 0, 0, 0.95)"; 
-                ctx.strokeStyle = "#f1c40f"; 
-                ctx.lineWidth = 3;
-                
-                // Wider box bounds to handle bigger typography gracefully
-                let boxWidth = 430;
-                let boxOffset = 180;
-
-                ctx.fillRect(player.x - boxOffset, player.y - 85, boxWidth, 68); 
-                ctx.strokeRect(player.x - boxOffset, player.y - 85, boxWidth, 68);
-                
-                ctx.fillStyle = "#ffffff"; 
-                ctx.font = "bold 15px monospace"; // <-- TEXT SIZE ENLARGED HERE
-                
+                ctx.fillStyle = "rgba(0, 0, 0, 0.95)"; ctx.strokeStyle = "#f1c40f"; ctx.lineWidth = 3;
+                let boxWidth = 430; let boxOffset = 180;
+                ctx.fillRect(player.x - boxOffset, player.y - 85, boxWidth, 68); ctx.strokeRect(player.x - boxOffset, player.y - 85, boxWidth, 68);
+                ctx.fillStyle = "#ffffff"; ctx.font = "bold 15px monospace"; 
                 if (introStage === "dialogue_360_1") {
                     ctx.fillText("Ya voy a presentar mi 360... El año", player.x - boxOffset + 15, player.y - 60);
                     ctx.fillText("se pasó volando, pero fue un buen ciclo.", player.x - boxOffset + 15, player.y - 38);
                 } else if (introStage === "dialogue_360_2") {
                     ctx.fillText("Mi clase favorita fue Explora, me", player.x - boxOffset + 15, player.y - 60);
-                    ctx.fillText("gustaron unos proyectos...", player.x - boxOffset + 15, player.y - 38);
+                    ctx.fillText("gustaron mucho algunos proyectos...", player.x - boxOffset + 15, player.y - 38);
                 } else if (introStage === "dialogue_360_3") {
                     ctx.fillText("Especialmente el de la empresa.", player.x - boxOffset + 15, player.y - 60);
-                    ctx.fillText("Era muy padre :D, espera voy a imprimir mi tarea...", player.x - boxOffset + 15, player.y - 38);
+                    ctx.fillText("¡Estuvo genial! Deja imprimo esto...", player.x - boxOffset + 15, player.y - 38);
                 }
-
-                // Tiny footer text telling the user they can skip
-                ctx.fillStyle = "#f1c40f";
-                ctx.font = "9px monospace";
+                ctx.fillStyle = "#f1c40f"; ctx.font = "9px monospace";
                 ctx.fillText("[Haz clic en la pantalla para saltar]", player.x - boxOffset + 15, player.y - 23);
             }
 
